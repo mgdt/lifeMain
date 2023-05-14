@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      .diagram {
+        width: 500px;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      h3 {
+        margin-bottom: 20px;
+      }
+
+      body {
+        padding: 50px;
+      }
+
+      .group-select {
+        margin-bottom: 30px;
+      }
+
+      @media only screen and (max-width: 600px) {
+        body {
+          padding: 20px;
+        }
+
+        .diagram {
+          width: 320px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="diagram">
+      <h3>Статистика главного в жизни</h3>
+      <select class="group-select custom-select"></select>
+      <canvas id="myChart"></canvas>
+    </div>
+
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script>
+      let currentDiagram = null;
+      let members = [];
+      let relationData = {};
+
+      async function render(groupId) {
+        await getMembers(groupId);
+
+        const diagramData = [
+          relationData.family,
+          relationData.career,
+          relationData.chill,
+          relationData.science,
+          relationData.world,
+          relationData.self,
+          relationData.beauty,
+          relationData.golry,
+        ];
+        drawDiagram(diagramData);
+      }
+
+      async function getMembers(group) {
+        const response = await axios.get(`/get-group-members?group=${group}`);
+        members = response.data;
+
+        relationData = {
+          family: 0,
+          career: 0,
+          chill: 0,
+          science: 0,
+          world: 0,
+          self: 0,
+          beauty: 0,
+          golry: 0,
+        };
+
+        members.forEach((member) => {
+          relationData[member.slug] += 1;
+        });
+
+        console.log(relationData);
+      }
+
+      function drawDiagram(diagramData) {
+        const data = {
+          labels: [
+            "семья и дети",
+            "карьера и деньги",
+            "развлечения и отдых",
+            "наука и исследования",
+            "совершенствование мира",
+            "саморазвитие",
+            "красота и искусство",
+            "слава и влияние",
+          ],
+          datasets: [
+            {
+              label: "My First Dataset",
+              data: diagramData,
+              backgroundColor: [
+                "red",
+                "green",
+                "blue",
+                "yellow",
+                "black",
+                "orange",
+                "pink",
+                "brown",
+              ],
+              hoverOffset: 4,
+            },
+          ],
+        };
+
+        const config = {
+          type: "pie",
+          data: data,
+          options: {},
+        };
+
+        if (currentDiagram) {
+          currentDiagram.destroy();
+        }
+        currentDiagram = new Chart(document.getElementById("myChart"), config);
+      }
+
+      async function main() {
+        const savedGroups = await axios.get("/get-saved-groups");
+        if (savedGroups.data.length == 0) {
+          alert("Не найдено просканнированных групп");
+          return;
+        }
+
+        const groupsInfo = [];
+
+        for (let i = 0; i < savedGroups.data.length; i++) {
+          let group = savedGroups.data[i].replaceAll(".json", "");
+
+          let groupInfo = await axios.get(`/get-group-info?group=${group}`);
+
+          if (groupInfo.data.error) {
+            alert("Неверный токен, обновите токен");
+            return;
+          }
+
+          groupInfo = groupInfo.data.response[0].name;
+          groupsInfo.push({
+            id: group,
+            name: groupInfo,
+          });
+        }
+
+        const groupsSelect = document.querySelector(".group-select");
+
+        groupsInfo.forEach((group) => {
+          const option = document.createElement("option");
+          option.value = group.id;
+          option.innerHTML = group.name;
+          groupsSelect.append(option);
+        });
+
+        groupsSelect.addEventListener("change", async (e) => {
+          await render(e.target.value);
+        });
+
+        await render(groupsInfo[0].id);
+      }
+
+      main();
+    </script>
+  </body>
+</html>
